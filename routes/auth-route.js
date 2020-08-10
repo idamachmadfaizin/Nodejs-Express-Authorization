@@ -3,6 +3,7 @@ const User = require('../models/user');
 const HttpStatusCode = require('http-status-codes');
 const { registerValidation, loginValidation } = require('../validations/user-validation');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 router.post('/register', async (req, res) => {
     // LEST VALIDATION REGISTER USER
@@ -34,4 +35,22 @@ router.post('/register', async (req, res) => {
         res.status(500).send(err);
     }
 });
+
+router.post('/login', async (req, res) => {
+    // LEST VALIDATION REGISTER USER
+    const { error } = loginValidation(req.body);
+    if (error) return res.status(HttpStatusCode.UNAUTHORIZED).send(error.details[0].message);
+
+    // CHECK EMAIL EXISTS
+    const userExist = await User.findOne({ email: req.body.email });
+    if (!userExist) return res.status(HttpStatusCode.UNAUTHORIZED).send('Email is not found!');
+    // PASSWORD VALIDATION
+    const passwordValid = await bcrypt.compare(req.body.password, userExist.password);
+    if (!passwordValid) return res.status(HttpStatusCode.UNAUTHORIZED).send('Invalid password');
+
+    // CREATE JWT TOKEN
+    const token = jwt.sign({ _id: userExist._id }, process.env.TOKEN_SECRET);
+    res.header('auth-token', token).status(HttpStatusCode.OK).send(token);
+});
+
 module.exports = router;
